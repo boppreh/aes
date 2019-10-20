@@ -169,6 +169,17 @@ def xor_bytes(a, b):
     """ Returns a new byte array with the elements xor'ed. """
     return bytes(i^j for i, j in zip(a, b))
 
+def inc_bytes(a):
+    """ Returns a new byte array with the value increment by 1 """
+    out = [v for v in a]
+    for i in range(len(out)-1, -1, -1):
+        if out[i] == 0xFF:
+            out[i] = 0
+        else:
+            out[i] += 1
+            break
+    return bytes(out)
+
 def pad(plaintext):
     """
     Pads the given plaintext with PKCS#7 padding to a multiple of 16 bytes.
@@ -323,6 +334,172 @@ class AES(object):
             # CBC mode decrypt: previous XOR decrypt(ciphertext)
             blocks.append(xor_bytes(previous, self.decrypt_block(ciphertext_block)))
             previous = ciphertext_block
+
+        return unpad(b''.join(blocks))
+
+    def encrypt_pcbc(self, plaintext, iv):
+        """
+        Encrypts `plaintext` using PCBC mode and PKCS#7 padding, with the given
+        initialization vector (iv).
+        """
+        assert len(iv) == 16
+
+        plaintext = pad(plaintext)
+
+        blocks = []
+        prev_ciphertext = iv
+        prev_plaintext = bytes([0x00] * 16)
+        # Splits in 16-byte parts.
+        for i in range(0, len(plaintext), 16):
+            plaintext_block = plaintext[i:i+16]
+            # PCBC mode encrypt: encrypt(plaintext_block XOR (prev_ciphertext XOR prev_plaintext))
+            ciphertext_block = self.encrypt_block(xor_bytes(plaintext_block, xor_bytes(prev_ciphertext, prev_plaintext)))
+            blocks.append(ciphertext_block)
+            prev_ciphertext = ciphertext_block
+            prev_plaintext = plaintext_block
+
+        return b''.join(blocks)
+
+    def decrypt_pcbc(self, ciphertext, iv):
+        """
+        Decrypts `plaintext` using PCBC mode and PKCS#7 padding, with the given
+        initialization vector (iv).
+        """
+        assert len(iv) == 16
+
+        blocks = []
+        prev_ciphertext = iv
+        prev_plaintext = bytes([0x00] * 16)
+        # Splits in 16-byte parts.
+        for i in range(0, len(ciphertext), 16):
+            ciphertext_block = ciphertext[i:i+16]
+            # PCBC mode decrypt: (prev_plaintext XOR prev_ciphertext) XOR decrypt(ciphertext_block)
+            plaintext_block = xor_bytes(xor_bytes(prev_ciphertext, prev_plaintext), self.decrypt_block(ciphertext_block))
+            blocks.append(plaintext_block)
+            prev_ciphertext = ciphertext_block
+            prev_plaintext = plaintext_block
+
+        return unpad(b''.join(blocks))
+
+    def encrypt_cfb(self, plaintext, iv):
+        """
+        Encrypts `plaintext` using CFB mode and PKCS#7 padding, with the given
+        initialization vector (iv).
+        """
+        assert len(iv) == 16
+
+        plaintext = pad(plaintext)
+
+        blocks = []
+        prev_ciphertext = iv
+        # Splits in 16-byte parts.
+        for i in range(0, len(plaintext), 16):
+            plaintext_block = plaintext[i:i+16]
+            # CFB mode encrypt: plaintext_block XOR encrypt(prev_ciphertext)
+            ciphertext_block = xor_bytes(plaintext_block, self.encrypt_block(prev_ciphertext))
+            blocks.append(ciphertext_block)
+            prev_ciphertext = ciphertext_block
+
+        return b''.join(blocks)
+
+    def decrypt_cfb(self, ciphertext, iv):
+        """
+        Decrypts `plaintext` using CFB mode and PKCS#7 padding, with the given
+        initialization vector (iv).
+        """
+        assert len(iv) == 16
+
+        blocks = []
+        prev_ciphertext = iv
+        # Splits in 16-byte parts.
+        for i in range(0, len(ciphertext), 16):
+            ciphertext_block = ciphertext[i:i+16]
+            # CFB mode decrypt: ciphertext XOR decrypt(prev_ciphertext)
+            plaintext_block = xor_bytes(ciphertext_block, self.decrypt_block(prev_ciphertext))
+            blocks.append(plaintext_block)
+            prev_ciphertext = ciphertext
+
+        return unpad(b''.join(blocks))
+
+    def encrypt_ofb(self, plaintext, iv):
+        """
+        Encrypts `plaintext` using OFB mode and PKCS#7 padding, with the given
+        initialization vector (iv).
+        """
+        assert len(iv) == 16
+
+        plaintext = pad(plaintext)
+
+        blocks = []
+        previous = iv
+        # Splits in 16-byte parts.
+        for i in range(0, len(plaintext), 16):
+            plaintext_block = plaintext[i:i+16]
+            # OFB mode encrypt: plaintext_block XOR encrypt(previous)
+            block = self.encrypt_block(previous)
+            ciphertext_block = xor_bytes(plaintext_block, block)
+            blocks.append(ciphertext_block)
+            previous = block
+
+        return b''.join(blocks)
+
+    def decrypt_ofb(self, ciphertext, iv):
+        """
+        Decrypts `plaintext` using OFB mode and PKCS#7 padding, with the given
+        initialization vector (iv).
+        """
+        assert len(iv) == 16
+
+        blocks = []
+        previous = iv
+        # Splits in 16-byte parts.
+        for i in range(0, len(ciphertext), 16):
+            ciphertext_block = ciphertext[i:i+16]
+            # OFB mode decrypt: ciphertext XOR decrypt(previous)
+            block = self.decrypt_block(previous)
+            plaintext_block = xor_bytes(ciphertext_block, block)
+            blocks.append(plaintext_block)
+            previous = block
+
+        return unpad(b''.join(blocks))
+
+    def encrypt_ctr(self, plaintext, iv):
+        """
+        Encrypts `plaintext` using CTR mode and PKCS#7 padding, with the given
+        initialization vector (iv).
+        """
+        assert len(iv) == 16
+
+        plaintext = pad(plaintext)
+
+        blocks = []
+        nonce = iv
+        # Splits in 16-byte parts.
+        for i in range(0, len(plaintext), 16):
+            plaintext_block = plaintext[i:i+16]
+            # CTR mode encrypt: plaintext_block XOR encrypt(nonce)
+            block = xor_bytes(plaintext_block, self.encrypt_block(nonce))
+            blocks.append(block)
+            nonce = inc_bytes(nonce)
+
+        return b''.join(blocks)
+
+    def decrypt_ctr(self, ciphertext, iv):
+        """
+        Decrypts `plaintext` using CTR mode and PKCS#7 padding, with the given
+        initialization vector (iv).
+        """
+        assert len(iv) == 16
+
+        blocks = []
+        nonce = iv
+        # Splits in 16-byte parts.
+        for i in range(0, len(ciphertext), 16):
+            ciphertext_block = ciphertext[i:i+16]
+            # CTR mode decrypt: ciphertext XOR decrypt(nonce)
+            block = xor_bytes(ciphertext_block, self.decrypt_block(nonce))
+            blocks.append(block)
+            nonce = inc_bytes(nonce)
 
         return unpad(b''.join(blocks))
 
