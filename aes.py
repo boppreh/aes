@@ -195,8 +195,6 @@ class AES:
         key_columns = bytes2matrix(master_key)
         iteration_size = len(master_key) // 4
 
-        # Each iteration has exactly as many columns as the key material.
-        columns_per_iteration = len(key_columns)
         i = 1
         while len(key_columns) < (self.n_rounds + 1) * 4:
             # Copy previous word.
