@@ -518,7 +518,7 @@ def benchmark():
     for i in range(30000):
         aes.encrypt_block(message)
 
-__all__ = [encrypt, decrypt, AES]
+__all__ = ["encrypt", "decrypt", "AES"]
 
 if __name__ == '__main__':
     import sys
