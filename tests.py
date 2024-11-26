@@ -181,6 +181,36 @@ class TestPcbc(unittest.TestCase):
         ciphertext = self.aes.encrypt_pcbc(long_message, self.iv)
         self.assertEqual(self.aes.decrypt_pcbc(ciphertext, self.iv), long_message)
 
+class TestEcb(unittest.TestCase):
+    """
+    Tests AES-128 in CBC mode.
+    """
+    def setUp(self):
+        self.aes = AES(b'\x00' * 16)
+        self.iv = b'\x01' * 16 # unused, ECB doesnt require IV
+        self.message = b'my message'
+
+    def test_single_block(self):
+        """ Should be able to encrypt and decrypt single block messages. """
+        ciphertext = self.aes.encrypt_ecb(self.message)
+        self.assertEqual(self.aes.decrypt_ecb(ciphertext), self.message)
+
+        # Since len(message) < block size, padding won't create a new block.
+        self.assertEqual(len(ciphertext), 16)
+
+    def test_whole_block_padding(self):
+        """ When len(message) == block size, padding will add a block. """
+        block_message = b'M' * 16
+        ciphertext = self.aes.encrypt_ecb(block_message)
+        self.assertEqual(len(ciphertext), 32)
+        self.assertEqual(self.aes.decrypt_ecb(ciphertext), block_message)
+    
+    def test_long_message(self):
+        """ CBC should allow for messages longer than a single block. """
+        long_message = b'M' * 100
+        ciphertext = self.aes.encrypt_ecb(long_message)
+        self.assertEqual(self.aes.decrypt_ecb(ciphertext), long_message)
+
 class TestCfb(unittest.TestCase):
     """
     Tests AES-128 in CBC mode.

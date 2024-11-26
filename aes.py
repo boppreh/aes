@@ -339,6 +339,34 @@ class AES:
             prev_plaintext = plaintext_block
 
         return unpad(b''.join(blocks))
+    
+    def encrypt_ecb(self, plaintext):
+        """
+        Encrypts `plaintext` using ECB mode and PKCS#7 padding.
+        """
+
+
+        plaintext = pad(plaintext)
+
+        blocks = []
+        for plaintext_block in split_blocks(plaintext):
+            # ECB mode encrypt: encrypt each block individually
+            blocks.append(self.encrypt_block(plaintext_block))
+
+        return b''.join(blocks)
+
+    def decrypt_ecb(self, ciphertext):
+        """
+        Decrypts `ciphertext` using ECB mode and PKCS#7 padding.
+        """
+        
+
+        blocks = []
+        for ciphertext_block in split_blocks(ciphertext):
+            # ECB mode decrypt: decrypt each block individually
+            blocks.append(self.decrypt_block(ciphertext_block))
+
+        return unpad(b''.join(blocks))
 
     def encrypt_cfb(self, plaintext, iv):
         """
@@ -528,7 +556,7 @@ if __name__ == '__main__':
     if len(sys.argv) < 2:
         print('Usage: ./aes.py encrypt "key" "message"')
         print('Running tests...')
-        from tests import *
+        from .tests import *
         run()
     elif len(sys.argv) == 2 and sys.argv[1] == 'benchmark':
         benchmark()
